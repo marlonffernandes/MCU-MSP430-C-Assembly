@@ -1,0 +1,94 @@
+//--------------------------- EX08-----------------------------------------
+//---------------Marlon Ferraz Fernandes--------------------------
+//------------------------------------------------------------------------------
+
+#include "msp430.h"                     ; #define controlled include file
+
+        NAME    main                    ; module name
+
+        PUBLIC  main                    ; make the main label vissible
+                                        ; outside this module
+        ORG     0FFFEh
+        DC16    init                    ; set reset vector to 'init' label
+
+        ORG     0xFFE4                  ; interrupção
+        DC16    p1interrup
+        
+        ORG     0xFFFA                  ; timer
+        DC16    interrupcao_TA1
+
+        RSEG    CSTACK                  ; pre-declaration of segment
+        RSEG    CODE                    ; place program in 'CODE' segment
+
+init:   MOV     #SFE(CSTACK), SP        ; set up stack
+
+main:   
+        call    #config_hardware
+        call    #config_interrup
+        call    #config_timer
+        BIC.B   #BIT0 + BIT6, &P1OUT    ;assegurar que os LEDs estão apagados
+        eint                            ;habilita todas as interrupcoes (timer e botão)
+        JMP $
+ 
+//--------------------------------END MAIN--------------------------------------
+
+//------------------------------uC configuration--------------------------------
+config_hardware:
+        MOV.W   #WDTPW+WDTHOLD,&WDTCTL  ; Stop watchdog timer
+        
+        MOV.W   #1, R12                 // P1.3 anterior
+        BIS.B   #BIT0+BIT6, &P1DIR      // P1.0, P1.6 output
+        
+        BIC.B   #BIT0, &P1OUT           //P1.0 as output
+        BIC.B   #BIT6, &P1OUT           //P1.6 as output
+        
+        BIC.B   #BIT3, &P1DIR           // P1.3 input
+        BIS.B   #BIT3, &P1REN           // pull-up ou pulldown on
+        BIS.B   #BIT3, &P1OUT           // pull-up
+        RET
+
+//-----------------------Interrupt configuration--------------------------------
+config_interrup:
+        BIS.B #BIT3, &P1IE       //Habilita interrupção P1.3
+        BIS.B #BIT3, &P1IES      //...Na borda de descida
+        BIC.B #BIT3, &P1IFG      //...Da uma geralzona na flag
+        RET
+//-----------------------Timer configuration--------------------------------
+config_timer:                          ; Configura Timer no registrador TA1CTL com MC_0 (parado), div 4, SMCLK (submainclk)
+        BIS.W  #TASSEL_2, &TA1CTL
+        BIS.W  #ID_2, &TA1CTL
+        BIS.W  #MC_0, &TA1CTL          
+        BIS.W  #CCIE, &TA1CCTL0        ; Habilita interrupcao especifica no registrador TA1CCTL0
+        MOV.W  #62500, &TA1CCR0
+        RET
+        
+        
+//-------------------------Função para apagar os LEDs---------------------------
+
+apaga:
+        BIC.B #BIT0 + BIT6, &P1OUT      
+        jmp bosa
+        
+//-------------------------Função para acender um dos LEDs----------------------
+
+ledsapagados: BIS.B #BIT0, &P1OUT            ;Acende LED vermelho
+              jmp bosa
+                       
+//-------------------------Rotina de interupção do BOTAO--------------------------------
+
+p1interrup:
+        XOR.W  #BIT4, &TA1CTL
+        BIT.W  #BIT4, &TA1CTL
+        JZ     apaga
+        JMP    ledsapagados     ;Acende LED vermelho apesar deste nome "ledsapagados"
+         
+       
+bosa:   BIC.B #BIT3, &P1IFG
+        RETI
+        
+//-------------------------Rotina de interupção do TIMER 1--------------------------------
+
+interrupcao_TA1:        XOR.B  #BIT0+BIT6, &P1OUT             
+            
+                        RETI
+        END
