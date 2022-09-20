@@ -1,0 +1,61 @@
+#include "msp430.h"                     ; #define controlled include file
+
+        NAME    main                    ; module name
+
+        PUBLIC  main                    ; make the main label vissible
+                                        ; outside this module
+        ORG     0FFFEh
+        DC16    init                    ; set reset vector to 'init' label
+
+        ASEG	0x0200	//definir um endereço absoluto na RAM para as variáveis x e y
+x:	DS8	1	//define um data space de 8 bits para apenas 1 ocorrência
+        ALIGN   1
+y:      DS16	1	//define um data space de 16 bits para apenas 1 ocorrência
+
+	
+
+
+        RSEG    CSTACK                  ; pre-declaration of segment
+        RSEG    CODE                    ; place program in 'CODE' segment
+
+init:   MOV     #SFE(CSTACK), SP        ; set up stack
+
+main:   NOP                             ; main program
+        MOV.W   #WDTPW+WDTHOLD,&WDTCTL  ; Stop watchdog timer
+        
+        MOV.W   #0x0220, R4
+        MOV.W   #0x0240, R8
+        MOV.B   #0x79, R12
+        MOV.W   #0x8736, R14
+        MOV.W   #0x5489, &0x021A
+        
+        MOV.B   R12, x          //move o conteúdo do Reg. 12 para a variável x (endereçamento simbólico)
+        MOV.W   #0x7159, y      //move uma word para a variável y (endereçamento simbólico)
+        
+        MOV.W   #0x9587, 0(R4)  //endereçamento indexado (não se utiliza o @ para o destino, mas sim o deslocamento, neste caso, 0, nele mesmo)
+        MOV.W   R14, 0(R8)      //endereçamento indexado (não se utiliza o @ para o destino, mas sim o deslocamento, neste caso, 0, nele mesmo)
+        
+        INCD.W  R4              //incrementa 2 no R4 com a instrução emulada 
+        INCD.W   R8              //incrementa no R8 2 com a instrução emulada
+        
+        MOV.W   &0x21A, 0(R4)   
+        MOV.W   y, 0(R8)        
+        
+        MOV.W   #0x0220, R4
+        MOV.W   #0x0222, R8
+        
+        MOV.W   #0x0260, R12
+        
+        MOV.W   @R4+, 0(R12)     //move um dos valores endereçamento indireto na origem e endereçamento indexado e automaticamente faz o incremento, ou seja, não precisa usar o INCD depois
+        ADD.W   @R8+, 0(R12)     //soma o valor e automaticamente faz o incremento, ou seja, não precisa usar o INCD depois
+        
+        MOV.W   @R4, 2(R12)
+        ADD.W   @R8, 2(R12)
+        
+        
+        
+        
+        
+        JMP $                           ; jump to current location '$'
+                                        ; (endless loop)
+        END
