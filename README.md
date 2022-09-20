@@ -13,4 +13,4 @@
 - Interrupt Service Routines
 - Data & Program memory
 
-##📚 [Final project](https://github.com/marlonffernandes/MCU-MSP430-C-Assembly/tree/main/C/lux-project)
+## 📚 [Final project](https://github.com/marlonffernandes/MCU-MSP430-C-Assembly/tree/main/C/lux-project)
