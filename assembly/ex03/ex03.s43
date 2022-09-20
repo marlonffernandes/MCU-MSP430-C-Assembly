@@ -1,0 +1,51 @@
+/*  Ex.03 */;Marlon Ferraz Fernandes
+
+#include "msp430.h"                     ; #define controlled include file
+
+        NAME    main                    ; module name
+
+        PUBLIC  main                    ; make the main label vissible
+                                        ; outside this module
+
+curso:  DB      "Curso de Engenharia Eletrica", 0x01
+disc:   DB      "Microcontroladores", 0x01
+nome:   DB      "Marlon Ferraz Fernandes", 0x01
+
+        ORG     0FFFEh
+        DC16    init                    ; set reset vector to 'init' label
+
+        RSEG    CSTACK                  ; pre-declaration of segment
+        RSEG    CODE                    ; place program in 'CODE' segment
+
+init:   MOV     #SFE(CSTACK), SP        ; set up stack
+
+main:   NOP                             ; main program
+        MOV.W   #WDTPW+WDTHOLD,&WDTCTL  ; Stop watchdog timer
+         
+
+        MOV.W   #0x0200, R12
+        MOV.W   #curso, R10
+        CALL    #escreve
+        
+        MOV.W   #0x0230, R12
+        MOV.W   #disc, R10
+        CALL    #escreve
+        
+        MOV.W   #0x0260, R12
+        MOV.W   #nome, R10
+        CALL    #escreve
+        
+        JMP $                           ; jump to current location '$'
+                                        ; (endless loop)
+
+
+escreve:      
+volta:         MOV.B   @R10, 0(R12)
+               INC     R10
+               INC     R12 
+               CMP.B   #0x01, 0(R10)
+               JNZ     volta
+               
+               RET
+        
+        END
