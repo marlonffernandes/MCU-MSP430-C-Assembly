@@ -1,0 +1,91 @@
+//--------------------------- EX07-----------------------------------------
+//---------------Marlon Ferraz Fernandes-----------------------------------
+//------------------------------------------------------------------------------
+
+#define CONTADOR R12    //Contador para o delay
+
+#include "msp430.h"                     ; #define controlled include file
+
+        NAME    main                    ; module name
+
+        PUBLIC  main                    ; make the main label vissible
+                                        ; outside this module
+        ORG     0FFFEh
+        DC16    init                    ; set reset vector to 'init' label
+        ORG 0xFFE4
+        DC16 p1interrup
+
+        RSEG    CSTACK                  ; pre-declaration of segment
+        RSEG    CODE                    ; place program in 'CODE' segment
+
+init:   MOV     #SFE(CSTACK), SP        ; set up stack
+
+main:   
+        call #config_hardware
+        call #config_interrup
+        BIC.B #BIT0 + BIT6, &P1OUT      //Apaga os Leds
+        
+l1:     BIT.B #BIT0 + BIT6, &P1OUT      //Os LEDs estão apagados?
+        jnz alterna     //Se não, alterne o estado dos leds
+        jmp l1  //Se sim, faça nada
+ 
+//--------------------------------END MAIN--------------------------------------
+
+//------------------------------uC configuration--------------------------------
+config_hardware:
+        MOV.W   #WDTPW+WDTHOLD,&WDTCTL  ; Stop watchdog timer
+        
+        MOV.W   #1, R12                 // P1.3 anterior
+        BIS.B   #BIT0+BIT6, &P1DIR      // p1.0, p1.6 output
+        
+        BIC.B   #BIT0, &P1OUT //P1.0 as output
+        BIC.B   #BIT6, &P1OUT //P1.6 as output
+        
+        BIC.B   #BIT3, &P1DIR           // p1.3 input
+        BIS.B   #BIT3, &P1REN           // pull-up ou pulldown on
+        BIS.B   #BIT3, &P1OUT            // pull-up
+        RET
+
+//-----------------------Interrupt configuration--------------------------------
+config_interrup:
+        BIS.B #BIT3, &P1IE       //Habilita interrupção p1.3
+        BIS.B #BIT3, &P1IES      //...Na borda de descida
+        BIC.B #BIT3, &P1IFG      //...Da uma geralzona na flag
+        eint
+        RET
+        
+//-------------------------Função para apagar os LEDs---------------------------
+
+apaga:
+        BIC.B #BIT0 + BIT6, &P1OUT      
+        jmp bosa
+        
+//-------------------------Função para acender um dos LEDs----------------------
+
+ledsapagados: BIS.B #BIT0, &P1OUT            //acende LED vermelho
+              jmp bosa
+              
+//----------------------------Função para alternar os LEDs----------------------
+
+alterna: XOR.B  #BIT0+BIT6, &P1OUT            
+         CALL   #temp 
+         RET
+
+temp:	 PUSH.W CONTADOR           
+         MOV.W  #0xF420, CONTADOR         ; 249984 / 4 ciclos = 62496 = 0xF420
+ciclos:  NOP
+         DEC.W  CONTADOR
+         JNZ    ciclos
+         POP    CONTADOR
+         jmp l1
+         
+//-------------------------Rotina de interupção--------------------------------
+
+p1interrup:
+        BIT.B #BIT0 + BIT6,&P1OUT
+        jnz apaga
+        jz ledsapagados
+bosa:   BIC.B #BIT3, &P1IFG
+        RETI
+            
+        END
