@@ -1,0 +1,85 @@
+#include "msp430.h"                     ; #define controlled include file
+        
+        #define CONTADOR R12            ; define o R12 com o nome contador
+
+        NAME    main                    ; module name
+
+        PUBLIC  main                    ; make the main label vissible
+                                        ; outside this module
+        ORG     0FFFEh
+        DC16    init                    ; set reset vector to 'init' label
+        
+        ASEG    0xFFE4                  ; seta vetor de interrupção para o label interrupcao_P1
+        DC16    interrupcao_P1 
+         
+        RSEG    CSTACK                  ; pre-declaration of segment
+        RSEG    CODE                    ; place program in 'CODE' segment
+
+init:   MOV     #SFE(CSTACK), SP        ; set up stack
+
+main:   NOP                             ; main program
+        CALL    #config_uc
+        CALL    #config_interrupt       
+        BIC.B   #BIT0 + BIT6, &P1OUT    ; Apaga os LEDs
+        CALL    #verifica               
+  
+        JMP $                           ; jump to current location '$'
+                                        ; (endless loop)
+
+//--------------------------------END MAIN--------------------------------------
+
+
+//------------------------------uC configuration--------------------------------
+ config_uc:
+        MOV.W   #WDTPW+WDTHOLD,&WDTCTL  ; Stop watchdog timer
+
+        BIC.B   #BIT3, &P1DIR           ; Direção da P1.3 como entrada
+        BIS.B   #BIT3, &P1REN           ; Habilitar Pull up/down para P1.3
+        BIS.B   #BIT3, &P1OUT           ; Habilita o Pull up para P1.3
+        
+        BIS.B   #BIT0 + BIT6, &P1DIR    ; Direção de P1.0 e P1.6 como saída
+        
+        RET                             ; Retorna para main
+
+//------------------------------interrupt configuration-------------------------
+config_interrupt:
+        BIS.B #BIT3, &P1IE       ; Habilita interrupção em P1.3
+        BIS.B #BIT3, &P1IES      ; Interrupção ativada na borda negativa em P1.3
+        BIC.B #BIT3, &P1IFG      ; Limpa a flag de interrupção
+        eint                     ; Enable General Interrupts
+
+        RET                      ; Retorna para main
+ 
+//------------------------------interrupcao_P1----------------------------------
+interrupcao_P1:    BIT.B   #BIT0 + BIT6, &P1OUT    ; Testa LEDs se estão apagados
+                   JNZ     apaga                   ; Se não estiverem apagados, pula para apaga
+                   BIS.B   #BIT6, &P1OUT           ; Se estiverem apagados, acende um dos LEDs
+                   BIC.B   #BIT3, &P1IFG           ; Limpa a flag de interrupção
+                   RETi                            ; Sai da interrupção
+
+apaga:             BIC.B   #BIT0 + BIT6, &P1OUT    ; Apaga LEDs     
+                   BIC.B   #BIT3, &P1IFG           ; Limpa a flag de interrupção
+                   RETi                            ; Sai da interrupção
+        
+                   
+
+//------------------------------VERIFICA----------------------------------------
+ verifica:         BIT.B   #BIT0 + BIT6, &P1OUT    ; LEDs apagados?
+                   JZ      verifica
+                   JMP     alterna                 ; Alterna LEDs
+
+//------------------------------ALTERNA-----------------------------------------
+  alterna:         XOR.B   #BIT0 + BIT6, &P1OUT    ; Alterna LEDs
+                   CALL    #delay  
+
+//-----------------------------DELAY--------------------------------------------                   
+  delay:           PUSH    CONTADOR
+                   MOV.W   #0xF420, CONTADOR
+  ciclos:          NOP
+                   DEC.W   CONTADOR
+                   JNZ     ciclos
+                   POP.W   CONTADOR
+                   JMP     verifica
+                   
+                   END
+        
