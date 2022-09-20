@@ -1,0 +1,76 @@
+#include "msp430.h"                     ; #define controlled include file
+
+        NAME    main                    ; module name
+
+        PUBLIC  main                    ; make the main label vissible
+                                        ; outside this module
+        ORG     0FFFEh
+        DC16    init                    ; set reset vector to 'init' label
+
+        ORG 0xFFE4
+        DC16 p1interrup
+       
+
+        RSEG    CSTACK                  ; pre-declaration of segment
+        RSEG    CODE                    ; place program in 'CODE' segment
+
+init:   MOV     #SFE(CSTACK), SP        ; set up stack
+
+main:   
+        call #config_hardware
+        call #config_interrup
+        BIC.B #BIT0 + BIT6, &P1OUT ;Assegurar que os LEDs estão apagados
+        BIC.B #BIT3, &P1IFG //limpar flag
+        //bis.w #GIE, SR
+        BIS.W # LPM4 +GIE, SR //LOW POWER MODE,  
+        //JMP $
+ 
+//--------------------------------END MAIN--------------------------------------
+
+//------------------------------uC configuration--------------------------------
+config_hardware:
+        MOV.W   #WDTPW+WDTHOLD,&WDTCTL  ; Stop watchdog timer
+        
+        MOV.W   #1, R12                 // P1.3 anterior
+        BIS.B   #BIT0+BIT6, &P1DIR      // p1.0, p1.6 output
+        
+        BIC.B   #BIT0, &P1OUT //P1.0 as output
+        BIC.B   #BIT6, &P1OUT //P1.6 as output
+        
+        BIC.B   #BIT3, &P1DIR           // p1.3 input
+        BIS.B   #BIT3, &P1REN           // pull-up ou pulldown on
+        BIS.B   #BIT3, &P1OUT            // pull-up
+        RET
+
+//-----------------------Interrupt configuration--------------------------------
+config_interrup:
+        BIS.B #BIT3, &P1IE       //Habilita interrupção p1.3
+        BIS.B #BIT3, &P1IES      //...Na borda de descida
+        BIC.B #BIT3, &P1IFG      //...Da uma geralzona na flag
+        RET
+//-----------------------Timer configuration--------------------------------
+config_timer:
+        BIS.W  #TASSEL_2, &TA1CTL
+        BIS.W  #ID_2, &TA1CTL
+        BIS.W  #MC_0, &TA1CTL          ; Configura Timer no registrador TA1CTL com MC_0 (parado), div 4, SMCLK (submainclk)
+        BIS.W  #CCIE, &TA1CCTL0                          ; Habilita interrupcao especifica no registrador TA1CCTL0
+        MOV.W  #62500, &TA1CCR0
+        RET                       
+//-------------------------Rotina de interupção do BOTAO--------------------------------
+
+p1interrup:
+        BIT.B #BIT3, &P1IN
+        jz acende
+        BIC.B #BIT0 + BIT6, &P1OUT //apaga led
+        JMP volta
+
+acende:
+       bis.b #BIT0+BIT6, &P1OUT
+       jmp volta
+       
+volta:  
+        XOR.B #BIT3, &P1IES      //...Na borda de SUBIDA (clear)
+        BIC.B #BIT3, &P1IFG
+        reti
+
+	END
