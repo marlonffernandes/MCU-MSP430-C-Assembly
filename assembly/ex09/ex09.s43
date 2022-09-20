@@ -1,0 +1,77 @@
+//-------------------------- EX09-----------------------------------------
+//---------------Marlon Ferraz Fernandes--------------------------
+//------------------------------------------------------------------------------
+
+#include "msp430.h"                     ; #define controlled include file
+
+        NAME    main                    ; module name
+
+        PUBLIC  main                    ; make the main label vissible
+                                        ; outside this module
+        ORG     0FFFEh
+        DC16    init                    ; set reset vector to 'init' label
+        
+        ORG     0xFFF2                  ; timer0
+        DC16    interrupcao_TA0         ; interrupção do timer0
+
+        RSEG    CSTACK                  ; pre-declaration of segment
+        RSEG    CODE                    ; place program in 'CODE' segment
+
+init:   MOV     #SFE(CSTACK), SP        ; set up stack
+
+main:   
+        call    #config_hardware
+        call    #config_timer
+        BIC.B   #BIT6, &P1OUT            ;assegurar que os LED vermelho está apagado
+        BIS.B   #BIT0, &P1OUT            ;assegurar que os LED verde está apagado
+        eint                             ;habilita todas as interrupcoes (timer e botão)
+        JMP $
+ 
+//--------------------------------END MAIN--------------------------------------
+
+//------------------------------uC configuration--------------------------------
+config_hardware:
+        MOV.W   #WDTPW+WDTHOLD,&WDTCTL  ; Stop watchdog timer
+        
+        ; DCOCTL --> altera o step (até 8 steps), MODx para fazer um ajuste fino
+        ; BCSCTLx --> define os 16 patamares de frequência
+        
+        //MOV.B   #0xCA, &DCOCTL          ;
+        //MOV.B   #0x86, &BCSCTL1         ; algo entorno de 1MHz   OU: 
+        
+        ;endereços na memória FLASH, com valores calibrados de CLK. Ou seja, pegando os valores que estão nesta memória e jogando ao registrador para o CLK
+        ;com o comentário acima, poderíamos fazer
+        ;MOV.B #CALDCO_1MHZ, &DCOCTL
+        ;MOV.B #CALBC1_1MHZ, &BCSCTL1
+        
+        MOV.B   &0x10FE, &DCOCTL          
+        MOV.B   &0x10FF, &BCSCTL1         
+       
+        //MOV.B   &0x10FA, &DCOCTL
+        //MOV.B   &0x10FB, &BCSCTL1
+        
+        //MOV.B   &0x10F8, &DCOCTL
+        //MOV.B   &0x10F9, &BCSCTL1
+        
+        BIS.B   #BIT0+BIT6, &P1DIR      ; P1.0, P1.6 output
+         
+        BIC.B   #BIT0, &P1OUT           ; P1.0 as output
+        BIC.B   #BIT6, &P1OUT           ; P1.6 as output
+        
+        RET
+
+//-----------------------Timer configuration--------------------------------
+config_timer:                          ; configura Timer no registrador TA0CTL com MC_1 (parado), div 8, SMCLK (submainclk)
+        BIS.W  #TASSEL_2, &TA0CTL
+        BIS.W  #ID_3, &TA0CTL
+        BIS.W  #MC_1, &TA0CTL          
+        MOV.W  #62500, &TA0CCR0
+        BIS.W  #CCIE, &TA0CCTL0        ; habilita interrupcao especifica no registrador TA0CCTL0
+        RET
+        
+//-------------------------Rotina de interupção do TIMER 0--------------------------------
+
+interrupcao_TA0:        XOR.B  #BIT0+BIT6, &P1OUT      ; altera os estados dos LEDs       
+            
+                        RETI
+        END
