@@ -1,0 +1,47 @@
+ //EXERCÍCIO 1          MARLON FERRAZ FERNANDES
+ 
+#include "msp430.h"                     ; #define controlled include file
+
+        NAME    main                    ; module name
+
+        PUBLIC  main                    ; make the main label vissible
+                                        ; outside this module
+        ORG     0FFFEh
+        DC16    init                    ; set reset vector to 'init' label
+
+        ASEG	0x0200	 //definir um endereço absoluto na RAM para as variáveis x e y
+x:	DS16	1	//define um data space de 16 bits para apenas 1 ocorrência
+y:      DS16	1	//define um data space de 16 bits para apenas 1 ocorrência
+
+        ASEG    0x0214
+soma_b  DS16    1
+        ASEG    0x0224
+soma_d  DS16    1
+
+        RSEG    CSTACK                  ; pre-declaration of segment
+        RSEG    CODE                    ; place program in 'CODE' segment
+
+init:   MOV     #SFE(CSTACK), SP        ; set up stack
+
+main:   NOP                             ; main program
+        MOV.W   #WDTPW+WDTHOLD,&WDTCTL  ; Stop watchdog timer
+
+        MOV.W   #0x7359, x      //atribui valor absoluto para o x
+        MOV.W   #0x1078, y      //atribui valor absoluto para o y
+        
+        CALL    #SUB_BIN    //chama subrotina soma binária
+        CALL    #SUB_DEC    //chama subrotina soma dec
+        
+        JMP $                           ; jump to current location '$'
+                                        ; (endless loop)
+
+SUB_BIN MOV.W   x, soma_b
+        ADD.W   y, soma_b
+        RET
+
+SUB_DEC CLRC
+        MOV.W   x, soma_d       //move o valor de x para soma_d
+        DADD.W  y, soma_d       //soma decimal
+        RET
+        
+        END
